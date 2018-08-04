@@ -120,38 +120,41 @@ summary(housing_data)
 ### Data Cleaning
 ```{r}
 na_count = sapply(housing_data, function(y) sum(length(which(is.na(y)))))
+na_count
 na_count[na_count>100]
 
 summary(housing_data[c("LotFrontage", "Alley", "FireplaceQu", "PoolQC", "Fence", "MiscFeature")])
 #, FireplaceQu, PoolQC, Fence, MiscFeature]
 na_data = housing_data[c("LotFrontage", "Alley", "FireplaceQu", "PoolQC", "Fence", "MiscFeature")]
-na_data
+#na_data
 ```
 
 ```{r}
-myvars <- names(housing_data) %in% c("LotFrontage", "Alley", "FireplaceQu", "PoolQC", "Fence", "MiscFeature") 
-newdata <- housing_data[!myvars]
-newdata = newdata[complete.cases(newdata),]
-newdata
+myvars = names(housing_data) %in% c("LotFrontage", "Alley", "FireplaceQu", "PoolQC", "Fence", "MiscFeature", "Condition2", "Exterior1st", "Exterior2nd") 
+clean_houz_data = housing_data[!myvars]
+clean_houz_data = clean_houz_data[complete.cases(clean_houz_data),]
+#clean_houz_data
 ```
 
 
 ### Train and Test Dataset
 ```{r}
-
+set.seed(42)
+trn_idx  = sample(nrow(clean_houz_data), size = trunc(0.80 * nrow(clean_houz_data)))
+houz_trn_data = clean_houz_data[trn_idx, ]
+houz_tst_data = clean_houz_data[-trn_idx, ]
 ```
 
 
-### The Big Additive Model
+### The Big Additive Model - using training data
 ```{r}
 #model_1 = lm(SalePrice~PoolArea, housing_data)
-model = lm(SalePrice~.,newdata)
-model
+additive_model = lm(SalePrice ~ ., data = houz_trn_data)
 ```
-
 ### Variable Selection
 ```{r}
-model = step(model, trace=0)
+model_add_aic = step(additive_model, direction = "backward", trace = FALSE)
+summary(model_add_aic)
 
 #model$xlevels[["Exterior1st"]] <- union(model$xlevels[["Exterior1st"]], levels(test_data$Exterior1st))
 #model$xlevels[["ExterCond"]] <- union(model$xlevels[["ExterCond"]], levels(test_data$ExterCond))
@@ -160,12 +163,27 @@ model = step(model, trace=0)
 ```
 
 ```{r}
-model
+#model
 ```
 
 ### Prediction for Test Dataset
 
 ### Performance of Additive Model
+```{r}
+# nrow(houz_trn_data), nrow(houz_tst_data)
+rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+pred_sale_price = predict(additive_model, newdata = houz_tst_data)
+#round(rmse(houz_trn_data$SalePrice, predict(additive_model)), 2)
+#round(rmse(houz_tst_data$SalePrice, predict(additive_model, houz_tst_data)), 2)
+
+```
+
+| Model   | **Train** RMSE                                            | **Test** RMSE                                                               |
+|---------|-----------------------------------------------------------|-----------------------------------------------------------------------------|
+| Additive Model | `r round(rmse(houz_trn_data$SalePrice, predict(additive_model)), 2)` | `r round(rmse(houz_tst_data$SalePrice, predict(additive_model, houz_tst_data)), 2)` |
+| Optimized from Additive Model | `r round(rmse(houz_trn_data$SalePrice, predict(model_add_aic)), 2)` | `r round(rmse(houz_tst_data$SalePrice, predict(model_add_aic, houz_tst_data)), 2)` |
 
 ### Inclusion of Interactive Terms
 
